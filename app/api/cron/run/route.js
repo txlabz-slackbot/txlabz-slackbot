@@ -1,22 +1,29 @@
 import { runDueReminders } from "../../../../lib/scheduler";
 import { NextResponse } from "next/server";
 
-export async function POST(request) {
-  
-  // This ensures that only requests with the correct secret can run the job.
+// Shared logic for both GET and POST
+async function handleCronRequest(request) {
+  // Vercel Cron sends the secret in the Authorization header
   const authHeader = request.headers.get('authorization');
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return new Response('Unauthorized', { status: 401 });
   }
 
-  // 2. Focused Logic (Prevents Timeouts)
-  // The function now only does what's necessary: running due reminders.
   try {
     const results = await runDueReminders(new Date());
     return NextResponse.json({ ok: true, count: results.length, results });
   } catch (e) {
     console.error("Cron job failed:", e);
-    // Use NextResponse for consistent error handling
     return new Response("Cron job failed", { status: 500 });
   }
+}
+
+// Support GET method (Vercel Cron uses GET by default)
+export async function GET(request) {
+  return handleCronRequest(request);
+}
+
+// Support POST method (for manual testing)
+export async function POST(request) {
+  return handleCronRequest(request);
 }
