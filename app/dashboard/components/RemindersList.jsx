@@ -14,44 +14,40 @@ export function RemindersList({ reminders, onPause, onDelete, onRunNow, onSelect
         // Options to format time to PKT (Asia/Karachi)
         const timeZoneOptions = { timeZone: 'Asia/Karachi', hour: '2-digit', minute: '2-digit', hour12: true };
         const dateOptions = { timeZone: 'Asia/Karachi', year: 'numeric', month: 'long', day: 'numeric' };
-    
+        
         if (reminder.frequency === 'daily') {
-            // reminder.time is already in PKT format (HH:MM), so format it directly without UTC conversion
+            // Convert HH:MM to 12-hour format directly
             const [hours, minutes] = reminder.time.split(':').map(Number);
-            const time = new Date();
-            time.setHours(hours, minutes, 0, 0);
-            const formattedTime = time.toLocaleTimeString('en-US', timeZoneOptions);
+            const period = hours >= 12 ? 'PM' : 'AM';
+            const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+            const formattedTime = `${displayHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`;
             return `Daily at ${formattedTime} (PKT)`;
         }
         if (reminder.frequency === 'weekly') {
             const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-            // reminder.time is already in PKT format (HH:MM), so format it directly without UTC conversion
+            // Convert HH:MM to 12-hour format directly
             const [hours, minutes] = reminder.time.split(':').map(Number);
-            const time = new Date();
-            time.setHours(hours, minutes, 0, 0);
-            const formattedTime = time.toLocaleTimeString('en-US', timeZoneOptions);
+            const period = hours >= 12 ? 'PM' : 'AM';
+            const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+            const formattedTime = `${displayHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`;
             return `Weekly on ${days[reminder.dayOfWeek]} at ${formattedTime} (PKT)`;
         }
         // Format "once" reminders to PKT
-        return new Date(reminder.scheduleAt).toLocaleString('en-US', { ...dateOptions, ...timeZoneOptions }) + ' (PKT)';
+        const scheduleDate = new Date(reminder.scheduleAt);
+        const dateStr = scheduleDate.toLocaleDateString('en-US', { 
+            timeZone: 'Asia/Karachi', 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric' 
+        });
+        const timeStr = scheduleDate.toLocaleTimeString('en-US', { 
+            timeZone: 'Asia/Karachi', 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: true 
+        });
+        return `${dateStr} at ${timeStr} (PKT)`;
     };
-    // const formatSchedule = (reminder) => {
-    //     // Options to format time to PST (Asia/Karachi)
-    //     const timeZoneOptions = { timeZone: 'Asia/Karachi', hour: '2-digit', minute: '2-digit', hour12: true };
-    //     const dateOptions = { timeZone: 'Asia/Karachi', year: 'numeric', month: 'long', day: 'numeric' };
-
-    //     if (reminder.frequency === 'daily') {
-    //         const time = new Date(`1970-01-01T${reminder.time}Z`).toLocaleTimeString('en-US', timeZoneOptions);
-    //         return `Daily at ${time} (PKT)`;
-    //     }
-    //     if (reminder.frequency === 'weekly') {
-    //         const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-    //         const time = new Date(`1970-01-01T${reminder.time}Z`).toLocaleTimeString('en-US', timeZoneOptions);
-    //         return `Weekly on ${days[reminder.dayOfWeek]} at ${time} (PKT)`;
-    //     }
-    //     // Format "once" reminders to PST
-    //     return new Date(reminder.scheduleAt).toLocaleString('en-US', { ...dateOptions, ...timeZoneOptions });
-    // };
     
     const stripMarkdown = (markdown) => {
         if (!markdown) return '';
@@ -79,7 +75,7 @@ export function RemindersList({ reminders, onPause, onDelete, onRunNow, onSelect
                                 <TableCell>{r.channelName}</TableCell>
                                 <TableCell>{formatSchedule(r)}</TableCell>
                                 <TableCell><span className={`px-2 py-1 text-xs font-semibold rounded-full ${r.isPaused ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>{r.isPaused ? "Paused" : "Active"}</span></TableCell>
-                                {/* Format the last delivery time to PST */}
+                                {/* Format the last delivery time to PKT */}
                                 <TableCell>{r.deliveries?.length ? new Date(r.deliveries[r.deliveries.length - 1].at).toLocaleString('en-US', { timeZone: 'Asia/Karachi' }) + ' (PKT)' : '—'}</TableCell>
                                 <TableCell className="text-right"><div className="flex items-center justify-end space-x-2">
                                     <Button variant="ghost" size="icon" onClick={(e) => handleActionClick(e, () => onEdit(r))} title="Edit"><Edit className="w-4 h-4" /></Button> 
