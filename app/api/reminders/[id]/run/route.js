@@ -17,7 +17,9 @@ export async function POST(_req, { params }) {
   try {
     await postMessageWithRetry({ channel: r.channelId, text: r.message });
     const now = new Date();
-    r.sent = true;
+    if (r.frequency === 'once') {
+      r.sent = true;
+    }
     r.deliveries.push({ at: now, ok: true });
     await r.save();
     return Response.json({ ok: true, id: r._id.toString(), lastRunAt: now });
