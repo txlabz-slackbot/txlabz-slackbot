@@ -17,12 +17,12 @@ export function RemindersList({ reminders, onPause, onDelete, onRunNow, onSelect
 
         if (reminder.frequency === 'daily') {
             const time = new Date(`1970-01-01T${reminder.time}Z`).toLocaleTimeString('en-US', timeZoneOptions);
-            return `Daily at ${time} (PST)`;
+            return `Daily at ${time} (PKT)`;
         }
         if (reminder.frequency === 'weekly') {
             const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
             const time = new Date(`1970-01-01T${reminder.time}Z`).toLocaleTimeString('en-US', timeZoneOptions);
-            return `Weekly on ${days[reminder.dayOfWeek]} at ${time} (PST)`;
+            return `Weekly on ${days[reminder.dayOfWeek]} at ${time} (PKT)`;
         }
         // Format "once" reminders to PST
         return new Date(reminder.scheduleAt).toLocaleString('en-US', { ...dateOptions, ...timeZoneOptions });
