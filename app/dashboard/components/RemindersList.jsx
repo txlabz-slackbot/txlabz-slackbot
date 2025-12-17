@@ -21,7 +21,7 @@ export function RemindersList({ reminders, onPause, onDelete, onRunNow, onSelect
             const period = hours >= 12 ? 'PM' : 'AM';
             const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
             const formattedTime = `${displayHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`;
-            return `Daily at ${formattedTime} (PKT)`;
+            return `Daily at ${formattedTime}`;
         }
         if (reminder.frequency === 'weekly') {
             const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -30,23 +30,20 @@ export function RemindersList({ reminders, onPause, onDelete, onRunNow, onSelect
             const period = hours >= 12 ? 'PM' : 'AM';
             const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
             const formattedTime = `${displayHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`;
-            return `Weekly on ${days[reminder.dayOfWeek]} at ${formattedTime} (PKT)`;
+            return `Weekly on ${days[reminder.dayOfWeek]} at ${formattedTime}`;
         }
         // Format "once" reminders to PKT
-        const scheduleDate = new Date(reminder.scheduleAt);
-        const dateStr = scheduleDate.toLocaleDateString('en-US', { 
-            timeZone: 'Asia/Karachi', 
-            year: 'numeric', 
-            month: 'short', 
-            day: 'numeric' 
-        });
-        const timeStr = scheduleDate.toLocaleTimeString('en-US', { 
-            timeZone: 'Asia/Karachi', 
-            hour: '2-digit', 
-            minute: '2-digit',
-            hour12: true 
-        });
-        return `${dateStr} at ${timeStr} (PKT)`;
+const scheduleDate = new Date(reminder.scheduleAt);
+const formattedDateTime = scheduleDate.toLocaleString('en-US', { 
+    timeZone: 'Asia/Karachi',
+    year: 'numeric', 
+    month: 'short', 
+    day: 'numeric',
+    hour: '2-digit', 
+    minute: '2-digit',
+    hour12: true 
+});
+return `${formattedDateTime}`;
     };
     
     const stripMarkdown = (markdown) => {
