@@ -88,7 +88,7 @@ export function CreateReminderForm({ channels, onCreate, setView }) {
             const localDate = new Date(form.scheduleAt);
             payload.scheduleAt = localDate.toISOString();
         } else {
-            // For recurring reminders, calculate next occurrence in PKT
+            // For recurring reminders, calculate next occurrence in local time (assumed PKT on the server)
             const now = new Date();
             const [hours, minutes] = form.time.split(':').map(Number);
 
@@ -120,9 +120,8 @@ export function CreateReminderForm({ channels, onCreate, setView }) {
                 nextOccurrence.setDate(nextOccurrence.getDate() + dayDifference);
             }
 
-            // Convert from PKT to UTC for storage
-            const utcDate = new Date(nextOccurrence.getTime() - PKT_OFFSET);
-            payload.scheduleAt = utcDate.toISOString();
+            // IMPORTANT: do not subtract PKT offset here; Date already stores correct UTC time internally.
+            payload.scheduleAt = nextOccurrence.toISOString();
         }
         await onCreate(payload);
         setIsSubmitting(false);
