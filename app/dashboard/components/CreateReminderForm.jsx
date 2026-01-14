@@ -83,11 +83,10 @@ export function CreateReminderForm({ channels, onCreate, setView }) {
         const PKT_OFFSET = 5 * 60 * 60 * 1000; // 5 hours in milliseconds
 
         if (form.frequency === 'once') {
-            // For one-time reminders, the datetime-local input is already in PKT
-            // We need to convert it to UTC for storage
+            // For one-time reminders, the datetime-local input is interpreted in the user's local timezone.
+            // We can safely convert it directly to an ISO string (UTC). No manual PKT offset adjustment is needed.
             const localDate = new Date(form.scheduleAt);
-            const utcDate = new Date(localDate.getTime() - PKT_OFFSET);
-            payload.scheduleAt = utcDate.toISOString();
+            payload.scheduleAt = localDate.toISOString();
         } else {
             // For recurring reminders, calculate next occurrence in PKT
             const now = new Date();
