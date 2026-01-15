@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import TurndownService from 'turndown';
 import MarkdownIt from 'markdown-it';
@@ -35,6 +35,7 @@ export function EditReminderDialog({ reminder, channels, onUpdate, onClose }) {
     const [channelMembers, setChannelMembers] = useState([]);
     const [isMembersLoading, setIsMembersLoading] = useState(false);
     const [membersError, setMembersError] = useState(null);
+    const previousChannelIdRef = useRef(reminder.channelId);
 
     const turndownService = useMemo(() => {
         const service = new TurndownService({
@@ -72,10 +73,16 @@ export function EditReminderDialog({ reminder, channels, onUpdate, onClose }) {
     }, []);
 
     useEffect(() => {
-        // Reset target user when channel changes
-        setEditedReminder((prev) => ({ ...prev, targetSlackUserId: "" }));
-        setChannelMembers([]);
-        setMembersError(null);
+        // Only reset target user when channel actually changes (not on initial mount)
+        const channelChanged = previousChannelIdRef.current !== editedReminder.channelId;
+        
+        if (channelChanged) {
+            // Reset target user when channel changes
+            setEditedReminder((prev) => ({ ...prev, targetSlackUserId: "" }));
+            setChannelMembers([]);
+            setMembersError(null);
+            previousChannelIdRef.current = editedReminder.channelId;
+        }
 
         if (!editedReminder.channelId) return;
 
