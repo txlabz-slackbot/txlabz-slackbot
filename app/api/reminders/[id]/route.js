@@ -13,12 +13,27 @@ export async function PUT(req, { params }) {
   try {
     await connectToDatabase();
     const body = await req.json();
-    // Use the destructured id variable here
-    const updated = await Reminder.findByIdAndUpdate(id, body, { new: true });
     
-    if (!updated) {
+    // Fetch existing reminder to compare changes
+    const existing = await Reminder.findById(id);
+    if (!existing) {
       return new Response("Reminder not found", { status: 404 });
     }
+    
+    // Determine if scheduleAt or frequency changed
+    const scheduleChanged = body.scheduleAt && 
+      new Date(body.scheduleAt).getTime() !== existing.scheduleAt.getTime();
+    const frequencyChanged = body.frequency && 
+      body.frequency !== existing.frequency;
+    
+    // If schedule or frequency changed, reset sent flag to allow rescheduling
+    // This ensures edited reminders are picked up by the scheduler at the new time
+    if (scheduleChanged || frequencyChanged) {
+      body.sent = false;
+    }
+    
+    // Use the destructured id variable here
+    const updated = await Reminder.findByIdAndUpdate(id, body, { new: true });
     
     return Response.json({ item: updated });
   } catch (error) {
