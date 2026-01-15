@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import dynamic from 'next/dynamic';
 import TurndownService from 'turndown';
@@ -14,10 +14,21 @@ const RichTextEditor = dynamic(
 );
 
 export function CreateReminderForm({ channels, onCreate, setView }) {
-    const [form, setForm] = useState({ message: "", channelId: "", scheduleAt: "", frequency: "once", time: "09:00", dayOfWeek: "1" });
+    const [form, setForm] = useState({
+        message: "",
+        channelId: "",
+        scheduleAt: "",
+        frequency: "once",
+        time: "09:00",
+        dayOfWeek: "1",
+        targetSlackUserId: "", // empty string === All (existing behavior)
+    });
     const [errors, setErrors] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const selectedChannel = useMemo(() => channels.find(c => c.id === form.channelId), [channels, form.channelId]);
+    const [channelMembers, setChannelMembers] = useState([]);
+    const [isMembersLoading, setIsMembersLoading] = useState(false);
+    const [membersError, setMembersError] = useState(null);
 
     const turndownService = useMemo(() => {
         const service = new TurndownService({
@@ -53,6 +64,45 @@ export function CreateReminderForm({ channels, onCreate, setView }) {
         return service;
     }, []);
 
+    useEffect(() => {
+        // Reset target user when channel changes
+        setForm((prev) => ({ ...prev, targetSlackUserId: "" }));
+        setChannelMembers([]);
+        setMembersError(null);
+
+        if (!form.channelId) return;
+
+        let cancelled = false;
+        const fetchMembers = async () => {
+            setIsMembersLoading(true);
+            try {
+                const res = await fetch(`/api/slack/channel-members?channelId=${encodeURIComponent(form.channelId)}`);
+                if (!res.ok) {
+                    throw new Error("Failed to load channel members");
+                }
+                const data = await res.json();
+                if (!cancelled) {
+                    setChannelMembers(data.members || []);
+                }
+            } catch (e) {
+                if (!cancelled) {
+                    setMembersError(e.message || "Failed to load channel members");
+                    setChannelMembers([]);
+                }
+            } finally {
+                if (!cancelled) {
+                    setIsMembersLoading(false);
+                }
+            }
+        };
+
+        fetchMembers();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [form.channelId]);
+
     const validateForm = () => {
         const newErrors = {};
         if (!form.message || form.message.trim() === "<p></p>" || form.message.trim() === "") {
@@ -77,7 +127,13 @@ export function CreateReminderForm({ channels, onCreate, setView }) {
         setIsSubmitting(true);
 
         let markdownMessage = turndownService.turndown(form.message);
-        let payload = { ...form, message: markdownMessage, channelName: selectedChannel?.name };
+        let payload = {
+            ...form,
+            message: markdownMessage,
+            channelName: selectedChannel?.name,
+            // Ensure backend sees null when "All" is selected so existing behavior is preserved.
+            targetSlackUserId: form.targetSlackUserId || null,
+        };
 
         // PKT is UTC+5
         const PKT_OFFSET = 5 * 60 * 60 * 1000; // 5 hours in milliseconds
@@ -158,6 +214,31 @@ export function CreateReminderForm({ channels, onCreate, setView }) {
                         <option value="weekly">Weekly</option>
                     </select>
                 </div>
+            </div>
+
+            <div className="space-y-1">
+                <label className="text-sm font-medium">Notify User <span className="text-xs text-gray-500">(optional)</span></label>
+                <select
+                    className="w-full rounded-md border border-input bg-background px-3 py-2"
+                    value={form.targetSlackUserId}
+                    onChange={(e) => setForm({ ...form, targetSlackUserId: e.target.value })}
+                    disabled={!form.channelId || isMembersLoading || !!membersError}
+                >
+                    <option value="">All (post to channel)</option>
+                    {channelMembers.map((m) => (
+                        <option key={m.id} value={m.id}>
+                            {m.display || m.name} ({m.id})
+                        </option>
+                    ))}
+                </select>
+                {isMembersLoading && (
+                    <p className="text-xs text-gray-500 mt-1">Loading channel members…</p>
+                )}
+                {membersError && (
+                    <p className="text-xs text-yellow-700 mt-1">
+                        Could not load channel members. Reminder will post to the channel.
+                    </p>
+                )}
             </div>
 
             {form.frequency === "once" && (

@@ -14,6 +14,9 @@ const ReminderSchema = new mongoose.Schema(
     message: { type: String, required: true },
     channelId: { type: String, required: true },
     channelName: { type: String },
+    // Optional: target Slack user in the selected channel for ephemeral notifications.
+    // When null/undefined, reminder behaves as a normal channel message.
+    targetSlackUserId: { type: String, default: null },
     scheduleAt: { type: Date, required: true },
     isPaused: { type: Boolean, default: false },
     // Flag for one-time reminders
