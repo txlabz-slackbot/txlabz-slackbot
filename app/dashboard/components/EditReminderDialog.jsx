@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import TurndownService from 'turndown';
 import MarkdownIt from 'markdown-it';
@@ -26,9 +26,15 @@ export function EditReminderDialog({ reminder, channels, onUpdate, onClose }) {
         return md.render(standardMarkdown);
     };
 
-    const [editedReminder, setEditedReminder] = useState(reminder);
+    const [editedReminder, setEditedReminder] = useState({
+        ...reminder,
+        targetSlackUserId: reminder.targetSlackUserId || "", // empty string === All (existing behavior)
+    });
     const [messageHtml, setMessageHtml] = useState(getInitialHtml);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [channelMembers, setChannelMembers] = useState([]);
+    const [isMembersLoading, setIsMembersLoading] = useState(false);
+    const [membersError, setMembersError] = useState(null);
 
     const turndownService = useMemo(() => {
         const service = new TurndownService({
@@ -65,6 +71,45 @@ export function EditReminderDialog({ reminder, channels, onUpdate, onClose }) {
         return service;
     }, []);
 
+    useEffect(() => {
+        // Reset target user when channel changes
+        setEditedReminder((prev) => ({ ...prev, targetSlackUserId: "" }));
+        setChannelMembers([]);
+        setMembersError(null);
+
+        if (!editedReminder.channelId) return;
+
+        let cancelled = false;
+        const fetchMembers = async () => {
+            setIsMembersLoading(true);
+            try {
+                const res = await fetch(`/api/slack/channel-members?channelId=${encodeURIComponent(editedReminder.channelId)}`);
+                if (!res.ok) {
+                    throw new Error("Failed to load channel members");
+                }
+                const data = await res.json();
+                if (!cancelled) {
+                    setChannelMembers(data.members || []);
+                }
+            } catch (e) {
+                if (!cancelled) {
+                    setMembersError(e.message || "Failed to load channel members");
+                    setChannelMembers([]);
+                }
+            } finally {
+                if (!cancelled) {
+                    setIsMembersLoading(false);
+                }
+            }
+        };
+
+        fetchMembers();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [editedReminder.channelId]);
+
     const formatToLocalDateTime = (isoString) => {
         if (!isoString) return "";
         const date = new Date(isoString);
@@ -84,6 +129,8 @@ export function EditReminderDialog({ reminder, channels, onUpdate, onClose }) {
             ...editedReminder,
             message: markdownMessage,
             scheduleAt: localDate.toISOString(),
+            // Ensure backend sees null when "All" is selected so existing behavior is preserved.
+            targetSlackUserId: editedReminder.targetSlackUserId || null,
         };
         onUpdate(payload);
         setIsSubmitting(false);
@@ -113,6 +160,30 @@ export function EditReminderDialog({ reminder, channels, onUpdate, onClose }) {
                                 value={editedReminder.channelId}
                                 onChange={(channelId) => setEditedReminder({ ...editedReminder, channelId })}
                             />
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium">Notify User <span className="text-xs text-gray-500">(optional)</span></label>
+                            <select
+                                className="mt-1 w-full rounded-md border border-input bg-transparent px-3 py-2"
+                                value={editedReminder.targetSlackUserId || ""}
+                                onChange={(e) => setEditedReminder({ ...editedReminder, targetSlackUserId: e.target.value })}
+                                disabled={!editedReminder.channelId || isMembersLoading || !!membersError}
+                            >
+                                <option value="">All (post to channel)</option>
+                                {channelMembers.map((m) => (
+                                    <option key={m.id} value={m.id}>
+                                        {m.display || m.name} ({m.id})
+                                    </option>
+                                ))}
+                            </select>
+                            {isMembersLoading && (
+                                <p className="text-xs text-gray-500 mt-1">Loading channel members…</p>
+                            )}
+                            {membersError && (
+                                <p className="text-xs text-yellow-700 mt-1">
+                                    Could not load channel members. Reminder will post to the channel.
+                                </p>
+                            )}
                         </div>
                         <div>
                             <label className="text-sm font-medium">
