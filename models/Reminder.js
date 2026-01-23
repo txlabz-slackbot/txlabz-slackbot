@@ -28,6 +28,8 @@ const ReminderSchema = new mongoose.Schema(
     
     deliveries: { type: [DeliverySchema], default: [] },
     createdBy: { type: String },
+    // Field to lock the reminder during processing to prevent duplicate runs
+    processingStartedAt: { type: Date },
   },
   { timestamps: true }
 );
