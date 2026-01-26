@@ -30,6 +30,8 @@ const ReminderSchema = new mongoose.Schema(
     createdBy: { type: String },
     // Field to lock the reminder during processing to prevent duplicate runs
     processingStartedAt: { type: Date },
+    // Track failures to prevent "poison pill" reminders from blocking the queue
+    failureCount: { type: Number, default: 0 },
   },
   { timestamps: true }
 );
