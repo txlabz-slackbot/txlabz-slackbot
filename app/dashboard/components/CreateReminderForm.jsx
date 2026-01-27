@@ -135,49 +135,12 @@ export function CreateReminderForm({ channels, onCreate, setView }) {
             targetSlackUserId: form.targetSlackUserId || null,
         };
 
-        // PKT is UTC+5
-        const PKT_OFFSET = 5 * 60 * 60 * 1000; // 5 hours in milliseconds
-
         if (form.frequency === 'once') {
-            // For one-time reminders, the datetime-local input is interpreted in the user's local timezone.
-            // We can safely convert it directly to an ISO string (UTC). No manual PKT offset adjustment is needed.
-            const localDate = new Date(form.scheduleAt);
-            payload.scheduleAt = localDate.toISOString();
+            // For one-time reminders, the datetime-local input is interpreted as PKT on the server.
+            payload.scheduleAt = form.scheduleAt;
         } else {
-            // For recurring reminders, calculate next occurrence in local time (assumed PKT on the server)
-            const now = new Date();
-            const [hours, minutes] = form.time.split(':').map(Number);
-
-            let nextOccurrence = new Date();
-            nextOccurrence.setHours(hours, minutes, 0, 0);
-
-            if (form.frequency === 'daily') {
-                // If the time has passed today, move to next day
-                if (nextOccurrence < now) {
-                    nextOccurrence.setDate(nextOccurrence.getDate() + 1);
-                }
-
-                // Skip weekends: if next occurrence is Saturday or Sunday, move to Monday
-                let dayOfWeek = nextOccurrence.getDay();
-                if (dayOfWeek === 6) {
-                    // Saturday -> add 2 days to get to Monday
-                    nextOccurrence.setDate(nextOccurrence.getDate() + 2);
-                } else if (dayOfWeek === 0) {
-                    // Sunday -> add 1 day to get to Monday
-                    nextOccurrence.setDate(nextOccurrence.getDate() + 1);
-                }
-
-            } else if (form.frequency === 'weekly') {
-                const targetDay = parseInt(form.dayOfWeek, 10);
-                let dayDifference = targetDay - nextOccurrence.getDay();
-                if (dayDifference < 0 || (dayDifference === 0 && nextOccurrence < now)) {
-                    dayDifference += 7;
-                }
-                nextOccurrence.setDate(nextOccurrence.getDate() + dayDifference);
-            }
-
-            // IMPORTANT: do not subtract PKT offset here; Date already stores correct UTC time internally.
-            payload.scheduleAt = nextOccurrence.toISOString();
+            // For recurring reminders, the server calculates scheduleAt based on PKT.
+            delete payload.scheduleAt;
         }
         await onCreate(payload);
         setIsSubmitting(false);

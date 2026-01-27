@@ -3,6 +3,11 @@ import mongoose from "mongoose";
 const DeliverySchema = new mongoose.Schema(
   {
     at: { type: Date, required: true },
+    // Scheduled slot the delivery was intended for
+    scheduledFor: { type: Date },
+    // When the attempt started / completed
+    attemptedAt: { type: Date },
+    deliveredAt: { type: Date },
     ok: { type: Boolean, required: true },
     error: { type: String },
   },
@@ -30,6 +35,13 @@ const ReminderSchema = new mongoose.Schema(
     createdBy: { type: String },
     // Field to lock the reminder during processing to prevent duplicate runs
     processingStartedAt: { type: Date },
+    // New lock fields for safe, idempotent processing
+    lockId: { type: String },
+    lockUntil: { type: Date },
+    // Retry scheduling + audit
+    retryAt: { type: Date },
+    lastAttemptAt: { type: Date },
+    lastDeliveredAt: { type: Date },
     // Track failures to prevent "poison pill" reminders from blocking the queue
     failureCount: { type: Number, default: 0 },
   },

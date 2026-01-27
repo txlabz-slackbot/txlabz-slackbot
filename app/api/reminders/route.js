@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../../lib/auth-options";
 import { connectToDatabase } from "../../../lib/db";
+import { calculateFirstOccurrence, pktLocalStringToUtcDate } from "../../../lib/time";
 import Reminder from "../../../models/Reminder";
 
 export async function GET() {
@@ -34,8 +35,23 @@ export async function POST(req) {
     }
 
     const payload = { ...body };
-    if (payload.scheduleAt && typeof payload.scheduleAt === "string") {
-      payload.scheduleAt = new Date(payload.scheduleAt);
+
+    if (payload.frequency === "once") {
+      if (!payload.scheduleAt) {
+        return new Response(JSON.stringify({ error: "scheduleAt is required for one-time reminders." }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      payload.scheduleAt = pktLocalStringToUtcDate(payload.scheduleAt);
+    } else if (payload.frequency === "daily" || payload.frequency === "weekly") {
+      if (!payload.time) {
+        return new Response(JSON.stringify({ error: "time is required for recurring reminders." }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      payload.scheduleAt = calculateFirstOccurrence(payload, new Date());
     }
 
     const doc = await Reminder.create({ ...payload, createdBy: session.user?.email || "admin" });

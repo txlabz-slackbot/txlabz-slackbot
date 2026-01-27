@@ -26,8 +26,23 @@ export function EditReminderDialog({ reminder, channels, onUpdate, onClose }) {
         return md.render(standardMarkdown);
     };
 
+    const PKT_OFFSET_MS = 5 * 60 * 60 * 1000;
+
+    const formatToPktDateTime = (isoString) => {
+        if (!isoString) return "";
+        const date = new Date(isoString);
+        const pkt = new Date(date.getTime() + PKT_OFFSET_MS);
+        const y = pkt.getUTCFullYear();
+        const m = String(pkt.getUTCMonth() + 1).padStart(2, "0");
+        const d = String(pkt.getUTCDate()).padStart(2, "0");
+        const h = String(pkt.getUTCHours()).padStart(2, "0");
+        const min = String(pkt.getUTCMinutes()).padStart(2, "0");
+        return `${y}-${m}-${d}T${h}:${min}`;
+    };
+
     const [editedReminder, setEditedReminder] = useState({
         ...reminder,
+        scheduleAt: formatToPktDateTime(reminder.scheduleAt),
         targetSlackUserId: reminder.targetSlackUserId || "", // empty string === All (existing behavior)
     });
     const [messageHtml, setMessageHtml] = useState(getInitialHtml);
@@ -117,25 +132,17 @@ export function EditReminderDialog({ reminder, channels, onUpdate, onClose }) {
         };
     }, [editedReminder.channelId]);
 
-    const formatToLocalDateTime = (isoString) => {
-        if (!isoString) return "";
-        const date = new Date(isoString);
-        const offset = date.getTimezoneOffset() * 60000;
-        const localDate = new Date(date.getTime() - offset);
-        return localDate.toISOString().slice(0, 16);
-    };
-
     const handleSubmit = (e) => {
         e.preventDefault();
         setIsSubmitting(true);
         
         const markdownMessage = turndownService.turndown(messageHtml);
         
-        const localDate = new Date(editedReminder.scheduleAt);
         const payload = {
             ...editedReminder,
             message: markdownMessage,
-            scheduleAt: localDate.toISOString(),
+            // scheduleAt is PKT datetime-local string; server converts to UTC.
+            scheduleAt: editedReminder.scheduleAt,
             // Ensure backend sees null when "All" is selected so existing behavior is preserved.
             targetSlackUserId: editedReminder.targetSlackUserId || null,
         };
@@ -199,7 +206,7 @@ export function EditReminderDialog({ reminder, channels, onUpdate, onClose }) {
                             <input
                                 type="datetime-local"
                                 className="mt-1 w-full rounded-md border border-input bg-transparent px-3 py-2"
-                                value={formatToLocalDateTime(editedReminder.scheduleAt)}
+                                value={editedReminder.scheduleAt}
                                 onChange={(e) => setEditedReminder({ ...editedReminder, scheduleAt: e.target.value })}
                                 required
                             />

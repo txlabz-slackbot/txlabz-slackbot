@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../../../lib/auth-options";
 import { connectToDatabase } from "../../../../lib/db";
+import { calculateFirstOccurrence, pktLocalStringToUtcDate } from "../../../../lib/time";
 import Reminder from "../../../../models/Reminder";
 
 export async function PUT(req, { params }) {
@@ -20,20 +21,38 @@ export async function PUT(req, { params }) {
       return new Response("Reminder not found", { status: 404 });
     }
     
-    // Determine if scheduleAt or frequency changed
-    const scheduleChanged = body.scheduleAt && 
-      new Date(body.scheduleAt).getTime() !== existing.scheduleAt.getTime();
-    const frequencyChanged = body.frequency && 
-      body.frequency !== existing.frequency;
-    
+    const merged = { ...existing.toObject(), ...body };
+    let scheduleChanged = false;
+    let frequencyChanged = body.frequency && body.frequency !== existing.frequency;
+    const timeChanged = body.time && body.time !== existing.time;
+    const dayChanged = body.dayOfWeek && body.dayOfWeek !== existing.dayOfWeek;
+    const schedulePayload = { ...body };
+
+    if (merged.frequency === "once") {
+      if (body.scheduleAt) {
+        const parsed = pktLocalStringToUtcDate(body.scheduleAt);
+        schedulePayload.scheduleAt = parsed;
+        scheduleChanged = parsed.getTime() !== existing.scheduleAt.getTime();
+      }
+    } else if (merged.frequency === "daily" || merged.frequency === "weekly") {
+      if (body.scheduleAt) {
+        const parsed = pktLocalStringToUtcDate(body.scheduleAt);
+        schedulePayload.scheduleAt = parsed;
+        scheduleChanged = parsed.getTime() !== existing.scheduleAt.getTime();
+      } else if (frequencyChanged || timeChanged || dayChanged) {
+        schedulePayload.scheduleAt = calculateFirstOccurrence(merged, new Date());
+        scheduleChanged = true;
+      }
+    }
+
     // If schedule or frequency changed, reset sent flag to allow rescheduling
     // This ensures edited reminders are picked up by the scheduler at the new time
     if (scheduleChanged || frequencyChanged) {
-      body.sent = false;
+      schedulePayload.sent = false;
     }
     
     // Use the destructured id variable here
-    const updated = await Reminder.findByIdAndUpdate(id, body, { new: true });
+    const updated = await Reminder.findByIdAndUpdate(id, schedulePayload, { new: true });
     
     return Response.json({ item: updated });
   } catch (error) {
